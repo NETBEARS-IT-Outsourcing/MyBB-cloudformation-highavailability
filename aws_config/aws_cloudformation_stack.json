@@ -923,7 +923,7 @@
             },
             "files":{
               "/tmp/mybb_code.zip":{
-                "source": "https://codeload.github.com/mariusmitrofan/crossover/zip/master",
+                "source": "https://codeload.github.com/NETBEARS-IT-Outsourcing/MyBB-cloudformation-highavailability/zip/master",
                 "mode":"000666",
                 "owner":"root",
                 "group":"root"
@@ -936,7 +936,7 @@
                       "#!/bin/bash\n",
                       "mkdir -p /opt/release/old && cd /opt/release/old && rm -rf /opt/release/old/ && cd /var/www/html && scp -rp . /opt/release/old/ \n",
                       "cd /tmp && unzip -o /tmp/mybb_code.zip -d /opt/mybb \n",
-                      "cd /opt/mybb/crossover-master && mkdir -p /opt/release/new && scp -rp . /opt/release/new/ && scp -rp . /var/www/html/ \n"
+                      "cd /opt/mybb/MyBB-cloudformation-highavailability-master && mkdir -p /opt/release/new && scp -rp . /opt/release/new/ && scp -rp . /var/www/html/ \n"
                     ]
                   ]
                 },
