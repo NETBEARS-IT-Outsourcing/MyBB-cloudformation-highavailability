@@ -2,6 +2,7 @@ FROM        php:7.1.2-apache
 
 ENV         TARGET /var/www/html
 ENV         CONFIG /tmp
+ENV         CHECK_DB database_exists.txt
 
 COPY        public-html/ /var/www/html
 COPY        mybb-config/ /tmp/
