@@ -21,15 +21,22 @@ sed -e "s/MYBB_DBNAME/${MYBB_DBNAME}/g" \
     -e "s/MYBB_DBPORT/${MYBB_DBPORT}/g" \
     "${CONFIG}/config.php" > "${TARGET}/inc/config.php"
 
-# Initialize database.
-#sed -e "s/MYBB_ADMINEMAIL/${MYBB_ADMINEMAIL}/g" \
-#    -e "s/MYBB_DOMAINNAME/${MYBB_DOMAINNAME}/g" \
-#    "${CONFIG}/mybb.sql" | mysql \
-#    --user="$MYBB_DBUSERNAME" \
-#    --password="$MYBB_DBPASSWORD" \
-#    --host="$MYBB_DBHOSTNAME" \
-#    --port="$MYBB_DBPORT" \
-#    --database="$MYBB_DBNAME" || echo "WE ASSUME DATA ALREADY EXISTS!"
+python $CONFIG/check_db.py
+
+if [ -f "$CHECK_DB" ]
+then
+    echo "data already exists"
+else
+    # Initialize database.
+    sed -e "s/MYBB_ADMINEMAIL/${MYBB_ADMINEMAIL}/g" \
+        -e "s/MYBB_DOMAINNAME/${MYBB_DOMAINNAME}/g" \
+        "${CONFIG}/mybb.sql" | mysql \
+        --user="$MYBB_DBUSERNAME" \
+        --password="$MYBB_DBPASSWORD" \
+        --host="$MYBB_DBHOSTNAME" \
+        --port="$MYBB_DBPORT" \
+        --database="$MYBB_DBNAME"
+fi
 
 # Set proper ownership and permissions.
 cd "$TARGET"
