@@ -13,7 +13,8 @@ RUN         apt-get update && \
                                 build-essential \
                                 python-pip \
                                 python-dev \
-                                libmysqlclient-dev
+                                libmysqlclient-dev \
+                                php5-mysql
 
 RUN         pip install -U pip && \
             pip install MySQL-python && \
