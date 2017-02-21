@@ -9,7 +9,13 @@ COPY        mybb-config/ /tmp/
 RUN         apt-get update && \
             apt-get install -y \
                                 mysql-client \
-                                build-essential
+                                build-essential \
+                                python-pip \
+                                python-dev \
+                                libmysqlclient-dev
+
+RUN         pip install -U pip && \
+            pip install MySQL-python
 RUN         chmod +x tmp/entrypoint.sh
 
 EXPOSE      80
