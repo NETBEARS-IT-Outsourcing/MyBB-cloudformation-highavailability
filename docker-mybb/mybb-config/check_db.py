@@ -14,11 +14,11 @@ def main():
     username = os.environ.get('MYBB_DBUSERNAME')
     password = os.environ.get('MYBB_DBPASSWORD')
     hostname = os.environ.get('MYBB_DBHOSTNAME')
-    port = os.environ.get('MYBB_DBPORT')
+    port = int(os.environ.get('MYBB_DBPORT'))
     database = os.environ.get('MYBB_DBNAME')
 
     try:
-        connection = MySQLdb.connect( host=hostname, user=username, passwd=password, db=database, port = port )
+        connection = MySQLdb.connect( host=hostname, user=username, passwd=password, db=database, port=port)
         result = doQuery(connection)
         if (result[0] > 0):
             f = open('database_exists.txt', 'w')
