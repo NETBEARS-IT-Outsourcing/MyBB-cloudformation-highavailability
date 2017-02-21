@@ -22,14 +22,14 @@ sed -e "s/MYBB_DBNAME/${MYBB_DBNAME}/g" \
     "${CONFIG}/config.php" > "${TARGET}/inc/config.php"
 
 # Initialize database.
-sed -e "s/MYBB_ADMINEMAIL/${MYBB_ADMINEMAIL}/g" \
-    -e "s/MYBB_DOMAINNAME/${MYBB_DOMAINNAME}/g" \
-    "${CONFIG}/mybb.sql" | mysql \
-    --user="$MYBB_DBUSERNAME" \
-    --password="$MYBB_DBPASSWORD" \
-    --host="$MYBB_DBHOSTNAME" \
-    --port="$MYBB_DBPORT" \
-    --database="$MYBB_DBNAME" || echo "WE ASSUME DATA ALREADY EXISTS!"
+#sed -e "s/MYBB_ADMINEMAIL/${MYBB_ADMINEMAIL}/g" \
+#    -e "s/MYBB_DOMAINNAME/${MYBB_DOMAINNAME}/g" \
+#    "${CONFIG}/mybb.sql" | mysql \
+#    --user="$MYBB_DBUSERNAME" \
+#    --password="$MYBB_DBPASSWORD" \
+#    --host="$MYBB_DBHOSTNAME" \
+#    --port="$MYBB_DBPORT" \
+#    --database="$MYBB_DBNAME" || echo "WE ASSUME DATA ALREADY EXISTS!"
 
 # Set proper ownership and permissions.
 cd "$TARGET"
@@ -42,4 +42,4 @@ chmod 777 cache/ cache/themes/ uploads/ uploads/avatars/
 chmod 777 cache/ cache/themes/ uploads/ uploads/avatars/ admin/backups/
 
 set -e
-/usr/local/bin/apache2-foreground
+exec /usr/local/bin/apache2-foreground
