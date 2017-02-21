@@ -39,9 +39,7 @@ COPY        mybb-config/ /tmp/
 
 RUN         pip install -U pip && \
             pip install MySQL-python && \
-            chmod +x tmp/entrypoint.sh
-
-RUN check_install_db.sh
+            chmod +x /tmp/entrypoint.sh
 
 EXPOSE      80
 ENTRYPOINT  ["/bin/sh","/tmp/entrypoint.sh"]
