@@ -25,7 +25,7 @@ RUN         apt-get update && apt-get install -y \
 
 RUN         docker-php-ext-install -j$(nproc) iconv json mcrypt intl phar ctype gd mysql && \
             pecl install  xdebug && \
-            docker-php-ext-enable --ini-name 0-apc.ini iconv json mcrypt intl phar ctype gd
+            docker-php-ext-enable --ini-name 0-apc.ini
 
 COPY        public-html/ /var/www/html
 COPY        mybb-config/ /tmp/
