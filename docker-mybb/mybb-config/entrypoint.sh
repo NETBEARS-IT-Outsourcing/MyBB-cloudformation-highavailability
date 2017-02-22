@@ -40,6 +40,14 @@ fi
 
 # Set proper ownership and permissions.
 cd "$TARGET"
+
+if [ -f "$TARGET/uploads/index.hml"]
+    echo "shared files already exist"
+else
+    mkdir -p $TARGET/uploads
+    cp -a $CONFIG/uploads/. $TARGET/uploads/
+fi
+
 # chown www-data:www-data *
 chmod 666 inc/config.php inc/settings.php
 chmod 666 inc/languages/english/*.php inc/languages/english/admin/*.php
