@@ -643,3 +643,11 @@ Resources:
         StepAdjustments:
           - MetricIntervalUpperBound: 0
             ScalingAdjustment: -2
+Outputs:
+  WebsiteURL:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - !GetAtt EcsElasticLoadBalancer.DNSName
+    Description: mybb Website
