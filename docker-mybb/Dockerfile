@@ -21,12 +21,11 @@ RUN apt-get update && apt-get install -y \
       python-dev \
       libmysqlclient-dev \
       mysql-client \
-      php5-mysql \
       --no-install-recommends && rm -r /var/lib/apt/lists/*
 
-RUN docker-php-ext-install -j$(nproc) iconv json mcrypt intl phar ctype gd \
- && pecl install oauth apcu apcu_bc-1.0.3 redis xdebug \
- && docker-php-ext-enable --ini-name 0-apc.ini iconv json mcrypt intl phar ctype gd oauth apcu apc redis
+RUN docker-php-ext-install -j$(nproc) iconv json mcrypt intl phar ctype gd mysql mysqli pdo pdo_mysql \
+ && pecl install  xdebug \
+ && docker-php-ext-enable --ini-name 0-apc.ini iconv json mcrypt intl phar ctype gd mysql mysqli pdo pdo_mysql
 
 COPY        public-html/ /var/www/html
 COPY        mybb-config/ /tmp/
