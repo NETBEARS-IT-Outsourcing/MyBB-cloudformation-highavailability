@@ -241,7 +241,7 @@ Resources:
   EcsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: All traffic (Yes, I'm retarded that way!)
+      GroupDescription: All traffic
       SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: '0'
