@@ -23,9 +23,10 @@ RUN         apt-get update && apt-get install -y \
                                           mysql-client \
                                           --no-install-recommends && rm -r /var/lib/apt/lists/*
 
-RUN         docker-php-ext-install -j$(nproc) iconv json mcrypt intl phar ctype gd mysql mysqli pdo pdo_mysql && \
+RUN         docker-php-ext-install -j$(nproc) iconv json mcrypt intl phar ctype gd mysql && \
             pecl install  xdebug && \
-            docker-php-ext-enable --ini-name 0-apc.ini
+            docker-php-ext-enable --ini-name 0-apc.ini iconv json mcrypt intl phar ctype gd mysql
+
 
 COPY        public-html/ /var/www/html
 COPY        mybb-config/ /tmp/
@@ -36,4 +37,3 @@ RUN         pip install -U pip && \
 
 EXPOSE      80
 ENTRYPOINT  ["/bin/sh","/tmp/entrypoint.sh"]
-CMD         ["apache2-foreground"]
