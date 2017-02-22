@@ -194,6 +194,15 @@ Parameters:
     Type: String
     Description: Policy to use for service scalable target
     Default: arn:aws:iam::681334690172:policy/ApplicationAutoScaling
+  ECSServiceRolePolicy:
+    Type: String
+    Description: Policy to use for EC2 instances
+    Default: arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+  ECSServiceRole:
+    Type: String
+    Description: Policy to use for ECS services
+    Default: arn:aws:iam::681334690172:role/ecsServiceRole
+
 
 Conditions:
   CreateCpuCreditBalanceAlarm:
@@ -232,17 +241,11 @@ Resources:
   EcsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Enable HTTP access via port 80 locked down to the load balancer
-        + SSH access
+      GroupDescription: All traffic (Yes, I'm retarded that way!)
       SecurityGroupIngress:
       - IpProtocol: tcp
-        FromPort: '80'
-        ToPort: '80'
-        CidrIp:
-          Ref: SourceCidr
-      - IpProtocol: tcp
-        FromPort: '22'
-        ToPort: '22'
+        FromPort: '0'
+        ToPort: '65535'
         CidrIp:
           Ref: SourceCidr
 
@@ -260,7 +263,7 @@ Resources:
           - sts:AssumeRole
       Path: "/"
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+      - Ref: ECSServiceRolePolicy
 
   EcsInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -281,8 +284,8 @@ Resources:
         Ref: FileSystem
       SubnetId:
         Ref: SubnetId1
-      SecurityGroups:
-      - Ref: MountTargetSecurityGroup
+      SecurityGroups: 
+      - !GetAtt EcsSecurityGroup.GroupId
 
   MountTarget2:
     Type: AWS::EFS::MountTarget
@@ -291,11 +294,15 @@ Resources:
         Ref: FileSystem
       SubnetId:
         Ref: SubnetId2
-      SecurityGroups:
-      - Ref: MountTargetSecurityGroup
+      SecurityGroups: 
+      - !GetAtt EcsSecurityGroup.GroupId
 
-  EcsInstanceLc1:
+  EcsInstanceLc:
     Type: AWS::AutoScaling::LaunchConfiguration
+    DependsOn:
+      - FileSystem
+      - MountTarget1
+      - MountTarget2
     Properties:
       ImageId:
         Fn::FindInMap:
@@ -309,7 +316,7 @@ Resources:
       KeyName:
         Ref: KeyName
       SecurityGroups:
-      - Ref: EcsSecurityGroup
+      - !GetAtt EcsSecurityGroup.GroupId
       UserData:
         Fn::Base64:
           Fn::Join:
@@ -326,10 +333,20 @@ Resources:
             - '      ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","gelf"]
 
 '
-            - "  - [ mkdir, -p. /media/efs-mount-point ]\n"
-            - "  - [ mount, -t, nfs4, -o, nfsvers=4.1, rsize=1048576, wsize=1048576, hard, timeo=600, retrans=2,"
-            - Ref: MountTarget1
-            - ":/, /media/efs-mount-point ]\n"
+            - 'runcmd:
+
+'
+            - "  - [ mkdir, -p, /media/efs-mount-point ]\n"
+            - "  - [ sh, -xc, 'echo \""
+            - Ref: FileSystem
+            - ".efs."
+            - Ref: AWS::Region
+            - ".amazonaws.com:/ /media/efs-mount-point nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0\"  >> /etc/fstab' ]\n"
+            - "  - [ sh, -xc, 'mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 "
+            - Ref: FileSystem
+            - ".efs."
+            - Ref: AWS::Region
+            - ".amazonaws.com:/ /media/efs-mount-point' ]\n"
             - "  - [stop,ecs]\n"
             - "  - [service, docker, restart] \n"
             - "  - [start, etcs]\n"
@@ -350,91 +367,14 @@ Resources:
             - "  - jq\n"
             - "  - tmux\n"
 
-  EcsInstanceLc2:
-    Type: AWS::AutoScaling::LaunchConfiguration
-    Properties:
-      ImageId:
-        Fn::FindInMap:
-          - AWSRegionToAMI
-          - Ref: AWS::Region
-          - AMIID
-      InstanceType:
-        Ref: EcsInstanceType
-      IamInstanceProfile:
-        Ref: EcsInstanceProfile
-      KeyName:
-        Ref: KeyName
-      SecurityGroups:
-      - Ref: EcsSecurityGroup
-      UserData:
-        Fn::Base64:
-          Fn::Join:
-          - ''
-          - - "#cloud-config\n"
-            - 'write_files:
-
-'
-            - "  - path: /etc/ecs/ecs.config\n"
-            - "    content: |\n"
-            - "      ECS_CLUSTER="
-            - Ref: EcsCluster
-            - "\n"
-            - '      ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","gelf"]
-
-'
-            - "  - [ mkdir, -p. /media/efs-mount-point ]\n"
-            - "  - [ mount, -t, nfs4, -o, nfsvers=4.1, rsize=1048576, wsize=1048576, hard, timeo=600, retrans=2,"
-            - Ref: MountTarget2
-            - ":/, /media/efs-mount-point ]\n"
-            - "  - [stop,ecs]\n"
-            - "  - [service, docker, restart] \n"
-            - "  - [start, etcs]\n"
-            - 'users:
-
-'
-            - "  - name: mariusmitrofan\n"
-            - "    groups: wheel,docker\n"
-            - "    sudo: ALL=(ALL) NOPASSWD:ALL\n"
-            - "    ssh-authorized-keys:\n"
-            - "      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDPR13D6jB5GXgQGvMCLIfsujqSBmmDBZLMnuv9r5qoBqGlqaO826MKX2kbXC2Ul1EEy8eKpbWSa+3EDMc/xmdHV+X4C3b9TzYWJkv84G7AQS+TpC2mxji+/Ag/2UZrzf1ZjC7/8qk8u6ACH2I5iQSEUCWvnbc35dsrvjW8HJzoLUhA1v06h6Mki0cgFPrnd2fhhHjkxnLWEFIC/jSnqEaPAahMrILaFrwCfFMDxGZZOlTRlrds936H70yglKaJDKy/mc6aK0jXAY2vkjOtVv5mhygnBMmZHWdLM+XzABV6EuKU/rp9WmSNj6BnUaLkoGPzPVNToKSUgVuwqT0NnSbH6jxYHQpluV/pH/yLBrNV1J1PmvfnCcfAOkuknF/uelYSEGdD6H8mLVwmg5VtzONG7qBIZUPcnFzWnZpMhQqS5XVXKHiX9aqwRp4gcW386Xnl3QHqO2MvGuh+NNQ+CQIXhZZiy2MNeJ2m1zhLNidXHUThXF97FhA0AGFK4Z30gsNcweFwgHP8df4D6TFgH7pCd7lZaMsC02mOgk0riqg/K0rfU/gGGqpqK6whs5qUSf6A7jLSCS+AOC4ZXL+KSOSd0+QdPOE/L31jE3MTfd9LefJIWNOjFD7e5e0/J8MsFAbNCknZzdL4Wilg8Wi8xSGdg0RRbAP4tM6vIi6F6mUrYQ== mariusmitrofan\n"
-            - 'packages:
-
-'
-            - "  - aws-cli\n"
-            - "  - htop\n"
-            - "  - nfs-utils\n"
-            - "  - jq\n"
-            - "  - tmux\n"
-
-  EcsInstanceAsg1:
+  EcsInstanceAsg:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       VPCZoneIdentifier:
       - Ref: SubnetId1
-      LaunchConfigurationName:
-        Ref: EcsInstanceLc1
-      MinSize: 
-        Ref: AsgMinSize
-      MaxSize: 
-        Ref: AsgMaxSize
-      DesiredCapacity:
-        Ref: AsgMinSize
-      Tags:
-      - Key: Name
-        Value:
-          Fn::Join:
-          - ''
-          - - 'ECS Instance - '
-            - Ref: AWS::StackName
-        PropagateAtLaunch: 'true'
-
-  EcsInstanceAsg2:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      VPCZoneIdentifier:
       - Ref: SubnetId2
       LaunchConfigurationName:
-        Ref: EcsInstanceLc2
+        Ref: EcsInstanceLc
       MinSize: 
         Ref: AsgMinSize
       MaxSize: 
@@ -592,14 +532,59 @@ Resources:
         - Name: MYBB_DBUSERNAME
           Value: !Ref DBUsername
         - Name: MYBB_DOMAINNAME
-          Value: TO-BE-FILLED-IN
+          Value: !GetAtt EcsElasticLoadBalancer.DNSName
         Memory: 128
+        MountPoints:
+        - ContainerPath: /var/www/html/uploads
+          SourceVolume: uploads
         PortMappings:
         - ContainerPort: 80
           HostPort: 0
+      Volumes:
+      - Name: uploads
+        Host:
+          SourcePath: /media/efs-mount-point
+
+  EcsElasticLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+      - Ref: SubnetId1
+      - Ref: SubnetId2
+      SecurityGroups:
+      - !GetAtt EcsSecurityGroup.GroupId
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: TargetGroup
+      LoadBalancerArn:
+        Ref: EcsElasticLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name:
+        Fn::Join:
+        - "-"
+        - - Ref: AWS::StackName
+      Port: 80
+      Protocol: HTTP
+      VpcId:
+        Ref: VpcId
+    DependsOn:
+    - EcsElasticLoadBalancer
 
   ServiceMyBB:
     Type: AWS::ECS::Service
+    DependsOn:
+      - EcsInstanceAsg
+      - DBInstance
     Properties:
       Cluster: 
         Ref: EcsCluster
@@ -607,6 +592,12 @@ Resources:
         MaximumPercent: 200
         MinimumHealthyPercent: 50
       TaskDefinition: !Ref MyBBTaskDefinition
+      LoadBalancers:
+      - ContainerName: mybb
+        ContainerPort: 80
+        TargetGroupArn:
+          Ref: TargetGroup
+      Role: !Ref ECSServiceRole
       DesiredCount: 
         Ref: AsgMinSize
 
