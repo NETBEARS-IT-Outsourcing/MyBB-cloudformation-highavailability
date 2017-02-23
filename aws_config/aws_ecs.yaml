@@ -92,6 +92,10 @@ Parameters:
     Type: Number
     Description: Maximum size and initial Desired Capacity of ECS Auto Scaling Group
     Default: 5
+  InitialECSServiceTaskCount:
+    Type: Number
+    Description: The initial number of tasks to run for this service
+    Default: 3
   SourceCidr:
     Type: String
     Description: Optional - CIDR/IP range for EcsPort - defaults to 0.0.0.0/0
@@ -599,7 +603,7 @@ Resources:
           Ref: TargetGroup
       Role: !Ref ECSServiceRole
       DesiredCount: 
-        Ref: AsgMinSize
+        Ref: InitialECSServiceTaskCount
 
   ScalableTargetMyBB:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
