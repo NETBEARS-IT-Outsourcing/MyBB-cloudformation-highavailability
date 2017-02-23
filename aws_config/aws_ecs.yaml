@@ -599,7 +599,7 @@ Resources:
           Ref: TargetGroup
       Role: !Ref ECSServiceRole
       DesiredCount: 
-        Ref: AsgMaxSize
+        Ref: AsgMinSize
 
   ScalableTargetMyBB:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
