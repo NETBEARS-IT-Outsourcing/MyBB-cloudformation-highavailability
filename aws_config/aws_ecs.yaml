@@ -1,0 +1,657 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+
+Mappings:
+  CpuCreditThresholds:
+    t2.nano:
+      t2credits: 29
+    t2.micro:
+      t2credits: 29
+    t2.small:
+      t2credits: 29
+    t2.medium:
+      t2credits: 59
+    t2.large:
+      t2credits: 59
+
+  AWSRegionToAMI:
+    us-east-1:
+      AMIID: ami-b2df2ca4
+    us-east-2:
+      AMIID: ami-832b0ee6
+    us-west-1:
+      AMIID: ami-dd104dbd
+    us-west-2:
+      AMIID: ami-022b9262
+
+Parameters:
+  EcsInstanceType:
+    Type: String
+    Description: ECS EC2 instance type
+    Default: t2.micro
+    AllowedValues:
+    - t2.nano
+    - t2.micro
+    - t2.small
+    - t2.medium
+    - t2.large
+    - m3.medium
+    - m3.large
+    - m3.xlarge
+    - m3.2xlarge
+    - m4.large
+    - m4.xlarge
+    - m4.2xlarge
+    - m4.4xlarge
+    - m4.10xlarge
+    - c4.large
+    - c4.xlarge
+    - c4.2xlarge
+    - c4.4xlarge
+    - c4.8xlarge
+    - c3.large
+    - c3.xlarge
+    - c3.2xlarge
+    - c3.4xlarge
+    - c3.8xlarge
+    - r3.large
+    - r3.xlarge
+    - r3.2xlarge
+    - r3.4xlarge
+    - r3.8xlarge
+    - i2.xlarge
+    - i2.2xlarge
+    - i2.4xlarge
+    - i2.8xlarge
+    - g2.2xlarge
+    - g2.8xlarge
+    - d2.xlarge
+    - d2.2xlarge
+    - d2.4xlarge
+    - d2.8xlarge
+    ConstraintDescription: must be a valid EC2 instance type.
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the ECS instances
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC Id of existing VPC.
+    AllowedPattern: "^(?:vpc-[0-9a-f]{8}|)$"
+    ConstraintDescription: VPC Id must begin with 'vpc-'.
+  SubnetId1:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID 1
+  SubnetId2:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet ID 2
+  AsgMinSize:
+    Type: Number
+    Description: Maximum size and initial Desired Capacity of ECS Auto Scaling Group
+    Default: 1
+  AsgMaxSize:
+    Type: Number
+    Description: Maximum size and initial Desired Capacity of ECS Auto Scaling Group
+    Default: 5
+  InitialECSServiceTaskCount:
+    Type: Number
+    Description: The initial number of tasks to run for this service
+    Default: 3
+  SourceCidr:
+    Type: String
+    Description: Optional - CIDR/IP range for EcsPort - defaults to 0.0.0.0/0
+    Default: 0.0.0.0/0
+  EcsCluster:
+    Type: String
+    Description: ECS Cluster Name
+  DBClass:
+    Description: Database instance class
+    Type: String
+    Default: db.t2.small
+    AllowedValues:
+    - db.t1.micro
+    - db.m1.small
+    - db.m1.medium
+    - db.m1.large
+    - db.m1.xlarge
+    - db.m2.xlarge
+    - db.m2.2xlarge
+    - db.m2.4xlarge
+    - db.m3.medium
+    - db.m3.large
+    - db.m3.xlarge
+    - db.m3.2xlarge
+    - db.m4.large
+    - db.m4.xlarge
+    - db.m4.2xlarge
+    - db.m4.4xlarge
+    - db.m4.10xlarge
+    - db.r3.large
+    - db.r3.xlarge
+    - db.r3.2xlarge
+    - db.r3.4xlarge
+    - db.r3.8xlarge
+    - db.m2.xlarge
+    - db.m2.2xlarge
+    - db.m2.4xlarge
+    - db.cr1.8xlarge
+    - db.t2.micro
+    - db.t2.small
+    - db.t2.medium
+    - db.t2.large
+    ConstraintDescription: must select a valid database instance type.
+  DBAllocatedStorage:
+    Default: '5'
+    Description: The size of the database (Gb)
+    Type: Number
+    MinValue: '5'
+    MaxValue: '1024'
+    ConstraintDescription: must be between 5 and 1024Gb.
+  DBName:
+    Type: String
+    Description: The name for the MyBB database.
+    MinLength: '4'
+    MaxLength: '20'
+    Default: DBName
+    AllowedPattern: "^[a-zA-Z0-9_]+$"
+    ConstraintDescription: Must be a valid database name!
+  DBUsername:
+    Type: String
+    Description: The username for the MyBB database.
+    MinLength: '5'
+    MaxLength: '20'
+    Default: DBUsername
+    AllowedPattern: "^[a-zA-Z0-9_]+$"
+    ConstraintDescription: Must be a valid database username string!
+  DBPassword:
+    Type: String
+    Default: DBPassword
+    Description: The password for the MyBB database.
+    NoEcho: true
+    MinLength: '8'
+    MaxLength: '64'
+    ConstraintDescription: Must be a valid database password (length [8 - 64] characters)!
+  DBPort:
+    Type: Number
+    Description: The port number where the web servers and MyBB database will speak
+      on.
+    MinValue: '1024'
+    MaxValue: '65536'
+    Default: 3306
+    ConstraintDescription: Must be a valid (non-restricted) port number!
+  MyBBAdminEmail:
+    Type: String
+    Description: Used for admin password reset email.
+    Default: admin@example.com
+    AllowedPattern: "\\w[a-zA-Z0-9_\\-\\.]*@\\w[a-zA-Z0-9\\-\\.]*"
+    ConstraintDescription: Must be a valid email address!
+  MyBBImage:
+    Type: String
+    Default: 681334690172.dkr.ecr.us-west-2.amazonaws.com/mybb:latest
+    Description: Container image in format RepoURL:ImageTag 
+  MultiAZ:
+    Type: String
+    Default: false
+    AllowedValues:
+    - false
+    - true
+  AutoScalingPolicy:
+    Type: String
+    Description: Policy to use for service scalable target
+    Default: arn:aws:iam::681334690172:policy/ApplicationAutoScaling
+  ECSServiceRolePolicy:
+    Type: String
+    Description: Policy to use for EC2 instances
+    Default: arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+  ECSServiceRole:
+    Type: String
+    Description: Policy to use for ECS services
+    Default: arn:aws:iam::681334690172:role/ecsServiceRole
+
+
+Conditions:
+  CreateCpuCreditBalanceAlarm:
+    Fn::Or:
+    - Fn::Equals:
+      - Ref: EcsInstanceType
+      - t2.nano
+    - Fn::Equals:
+      - Ref: EcsInstanceType
+      - t2.micro
+    - Fn::Equals:
+      - Ref: EcsInstanceType
+      - t2.small
+    - Fn::Equals:
+      - Ref: EcsInstanceType
+      - t2.medium
+    - Fn::Equals:
+      - Ref: EcsInstanceType
+      - t2.large
+  Is-EC2-VPC:
+    Fn::Or:
+    - Fn::Equals:
+      - Ref: AWS::Region
+      - eu-central-1
+    - Fn::Equals:
+      - Ref: AWS::Region
+      - cn-north-1
+    - Fn::Equals:
+      - Ref: AWS::Region
+      - ap-northeast-2
+  Is-EC2-Classic:
+    Fn::Not:
+    - Condition: Is-EC2-VPC
+
+Resources:
+  EcsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: All traffic
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp:
+          Ref: SourceCidr
+
+  EcsInstancePolicy:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+      - Ref: ECSServiceRolePolicy
+
+  EcsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+      - Ref: EcsInstancePolicy
+  
+  FileSystem:
+    Type: "AWS::EFS::FileSystem"
+    Properties:
+      PerformanceMode: generalPurpose
+
+  MountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId:
+        Ref: FileSystem
+      SubnetId:
+        Ref: SubnetId1
+      SecurityGroups: 
+      - !GetAtt EcsSecurityGroup.GroupId
+
+  MountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId:
+        Ref: FileSystem
+      SubnetId:
+        Ref: SubnetId2
+      SecurityGroups: 
+      - !GetAtt EcsSecurityGroup.GroupId
+
+  EcsInstanceLc:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    DependsOn:
+      - FileSystem
+      - MountTarget1
+      - MountTarget2
+    Properties:
+      ImageId:
+        Fn::FindInMap:
+          - AWSRegionToAMI
+          - Ref: AWS::Region
+          - AMIID
+      InstanceType:
+        Ref: EcsInstanceType
+      IamInstanceProfile:
+        Ref: EcsInstanceProfile
+      KeyName:
+        Ref: KeyName
+      SecurityGroups:
+      - !GetAtt EcsSecurityGroup.GroupId
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - "#cloud-config\n"
+            - 'write_files:
+
+'
+            - "  - path: /etc/ecs/ecs.config\n"
+            - "    content: |\n"
+            - "      ECS_CLUSTER="
+            - Ref: EcsCluster
+            - "\n"
+            - '      ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","gelf"]
+
+'
+            - 'runcmd:
+
+'
+            - "  - [ mkdir, -p, /media/efs-mount-point ]\n"
+            - "  - [ sh, -xc, 'echo \""
+            - Ref: FileSystem
+            - ".efs."
+            - Ref: AWS::Region
+            - ".amazonaws.com:/ /media/efs-mount-point nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0\"  >> /etc/fstab' ]\n"
+            - "  - [ sh, -xc, 'mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 "
+            - Ref: FileSystem
+            - ".efs."
+            - Ref: AWS::Region
+            - ".amazonaws.com:/ /media/efs-mount-point' ]\n"
+            - "  - [stop,ecs]\n"
+            - "  - [service, docker, restart] \n"
+            - "  - [start, etcs]\n"
+            - 'users:
+
+'
+            - "  - name: mariusmitrofan\n"
+            - "    groups: wheel,docker\n"
+            - "    sudo: ALL=(ALL) NOPASSWD:ALL\n"
+            - "    ssh-authorized-keys:\n"
+            - "      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDPR13D6jB5GXgQGvMCLIfsujqSBmmDBZLMnuv9r5qoBqGlqaO826MKX2kbXC2Ul1EEy8eKpbWSa+3EDMc/xmdHV+X4C3b9TzYWJkv84G7AQS+TpC2mxji+/Ag/2UZrzf1ZjC7/8qk8u6ACH2I5iQSEUCWvnbc35dsrvjW8HJzoLUhA1v06h6Mki0cgFPrnd2fhhHjkxnLWEFIC/jSnqEaPAahMrILaFrwCfFMDxGZZOlTRlrds936H70yglKaJDKy/mc6aK0jXAY2vkjOtVv5mhygnBMmZHWdLM+XzABV6EuKU/rp9WmSNj6BnUaLkoGPzPVNToKSUgVuwqT0NnSbH6jxYHQpluV/pH/yLBrNV1J1PmvfnCcfAOkuknF/uelYSEGdD6H8mLVwmg5VtzONG7qBIZUPcnFzWnZpMhQqS5XVXKHiX9aqwRp4gcW386Xnl3QHqO2MvGuh+NNQ+CQIXhZZiy2MNeJ2m1zhLNidXHUThXF97FhA0AGFK4Z30gsNcweFwgHP8df4D6TFgH7pCd7lZaMsC02mOgk0riqg/K0rfU/gGGqpqK6whs5qUSf6A7jLSCS+AOC4ZXL+KSOSd0+QdPOE/L31jE3MTfd9LefJIWNOjFD7e5e0/J8MsFAbNCknZzdL4Wilg8Wi8xSGdg0RRbAP4tM6vIi6F6mUrYQ== mariusmitrofan\n"
+            - 'packages:
+
+'
+            - "  - aws-cli\n"
+            - "  - htop\n"
+            - "  - nfs-utils\n"
+            - "  - jq\n"
+            - "  - tmux\n"
+
+  EcsInstanceAsg:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier:
+      - Ref: SubnetId1
+      - Ref: SubnetId2
+      LaunchConfigurationName:
+        Ref: EcsInstanceLc
+      MinSize: 
+        Ref: AsgMinSize
+      MaxSize: 
+        Ref: AsgMaxSize
+      DesiredCapacity:
+        Ref: AsgMinSize
+      Tags:
+      - Key: Name
+        Value:
+          Fn::Join:
+          - ''
+          - - 'ECS Instance - '
+            - Ref: AWS::StackName
+        PropagateAtLaunch: 'true'
+
+  DBSecurityGroup:
+    Type: AWS::RDS::DBSecurityGroup
+    Condition: Is-EC2-Classic
+    Properties:
+      DBSecurityGroupIngress:
+        EC2SecurityGroupName: !Ref EcsSecurityGroup
+      GroupDescription: database access
+
+  DBEC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: Is-EC2-VPC
+    Properties:
+      GroupDescription: Open database for access
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        SourceSecurityGroupName: !Ref EcsSecurityGroup
+
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName:
+        Ref: DBName
+      Engine: MySQL
+      MultiAZ: !Ref MultiAZ
+      MasterUsername:
+        Ref: DBUsername
+      MasterUserPassword:
+        Ref: DBPassword
+      DBInstanceClass:
+        Ref: DBClass
+      AllocatedStorage:
+        Ref: DBAllocatedStorage
+      VPCSecurityGroups:
+        Fn::If:
+        - Is-EC2-VPC
+        - - Fn::GetAtt:
+            - DBEC2SecurityGroup
+            - GroupId
+        - Ref: AWS::NoValue
+      DBSecurityGroups:
+        Fn::If:
+        - Is-EC2-Classic
+        - - Ref: DBSecurityGroup
+        - Ref: AWS::NoValue
+
+  ScaleUpPolicyAsg:
+    Type: AWS::AutoScaling::ScalingPolicy
+    DependsOn:
+      - EcsInstanceAsg
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref EcsInstanceAsg
+      Cooldown: '60'
+      ScalingAdjustment: 1
+
+  ScaleDownPolicyAsg:
+    Type: AWS::AutoScaling::ScalingPolicy
+    DependsOn:
+      - EcsInstanceAsg
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref EcsInstanceAsg
+      Cooldown: '60'
+      ScalingAdjustment: -1
+
+  ApplicationScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+              - application-autoscaling.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref AutoScalingPolicy
+
+  CPUAlarmHigh:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - ScaleUpPolicyAsg
+      - ServiceScaleUpPolicyMyBB
+    Properties:
+      EvaluationPeriods: 2
+      Statistic: Average
+      Threshold: 70
+      AlarmDescription: Alarm if CPU too high
+      Period: 60
+      AlarmActions:
+      - Ref: ScaleUpPolicyAsg
+      - Ref: ServiceScaleUpPolicyMyBB
+      Namespace: AWS/EC2
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref EcsInstanceAsg
+      ComparisonOperator: GreaterThanThreshold
+      MetricName: CPUUtilization
+
+  CPUAlarmLow:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn:
+      - ScaleDownPolicyAsg
+      - ServiceScaleDownPolicyMyBB
+    Properties:
+      EvaluationPeriods: 2
+      Statistic: Average
+      Threshold: 30
+      AlarmDescription: Alarm if CPU too low
+      Period: 60
+      AlarmActions:
+      - Ref: ScaleDownPolicyAsg
+      - Ref: ServiceScaleDownPolicyMyBB
+      Namespace: AWS/EC2
+      Dimensions:
+      - Name: AutoScalingGroupName
+        Value: !Ref EcsInstanceAsg
+      ComparisonOperator: LessThanThreshold
+      MetricName: CPUUtilization
+
+  MyBBTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      ContainerDefinitions:
+      - Name: mybb
+        Image: !Ref MyBBImage
+        Environment:
+        - Name: MYBB_ADMINEMAIL
+          Value: !Ref MyBBAdminEmail
+        - Name: MYBB_DBHOSTNAME
+          Value: !GetAtt DBInstance.Endpoint.Address
+        - Name: MYBB_DBNAME
+          Value: !Ref DBName
+        - Name: MYBB_DBPASSWORD
+          Value: !Ref DBPassword
+        - Name: MYBB_DBPORT
+          Value : !Ref DBPort
+        - Name: MYBB_DBUSERNAME
+          Value: !Ref DBUsername
+        - Name: MYBB_DOMAINNAME
+          Value: !GetAtt EcsElasticLoadBalancer.DNSName
+        Memory: 128
+        MountPoints:
+        - ContainerPath: /var/www/html/uploads
+          SourceVolume: uploads
+        PortMappings:
+        - ContainerPort: 80
+          HostPort: 0
+      Volumes:
+      - Name: uploads
+        Host:
+          SourcePath: /media/efs-mount-point
+
+  EcsElasticLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+      - Ref: SubnetId1
+      - Ref: SubnetId2
+      SecurityGroups:
+      - !GetAtt EcsSecurityGroup.GroupId
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: TargetGroup
+      LoadBalancerArn:
+        Ref: EcsElasticLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name:
+        Fn::Join:
+        - "-"
+        - - Ref: AWS::StackName
+      Port: 80
+      Protocol: HTTP
+      VpcId:
+        Ref: VpcId
+    DependsOn:
+    - EcsElasticLoadBalancer
+
+  ServiceMyBB:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - EcsInstanceAsg
+      - DBInstance
+    Properties:
+      Cluster: 
+        Ref: EcsCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+      TaskDefinition: !Ref MyBBTaskDefinition
+      LoadBalancers:
+      - ContainerName: mybb
+        ContainerPort: 80
+        TargetGroupArn:
+          Ref: TargetGroup
+      Role: !Ref ECSServiceRole
+      DesiredCount: 
+        Ref: InitialECSServiceTaskCount
+
+  ScalableTargetMyBB:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 
+        Ref: AsgMaxSize
+      MinCapacity: 
+        Ref: AsgMinSize
+      ResourceId: 
+        Fn::Join:
+          - /
+          - - service
+            - Ref: EcsCluster
+            - !GetAtt ServiceMyBB.Name
+      RoleARN: !GetAtt ApplicationScalingRole.Arn
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+
+  ServiceScaleUpPolicyMyBB:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ServiceScaleUpMyBB
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ScalableTargetMyBB
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 120
+        StepAdjustments:
+          - MetricIntervalLowerBound: 0
+            ScalingAdjustment: 2
+            
+  ServiceScaleDownPolicyMyBB:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: ServiceScaleDownMyBB
+      PolicyType: StepScaling
+      ScalingTargetId: !Ref ScalableTargetMyBB
+      StepScalingPolicyConfiguration:
+        AdjustmentType: ChangeInCapacity
+        Cooldown: 120
+        StepAdjustments:
+          - MetricIntervalUpperBound: 0
+            ScalingAdjustment: -2
+Outputs:
+  WebsiteURL:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - !GetAtt EcsElasticLoadBalancer.DNSName
+    Description: mybb Website

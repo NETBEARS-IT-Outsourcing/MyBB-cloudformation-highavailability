@@ -284,4 +284,3 @@ $settings['browsingthisthread'] = "1";
 $settings['emailkeep'] = "0";
 $settings['hottopicviews'] = "150";
 $settings['wolorder'] = "username";
-
