@@ -41,7 +41,7 @@ fi
 # Set proper ownership and permissions.
 cd "$TARGET"
 
-if [ -f "$TARGET/uploads/index.hml"]
+if [ -f "$TARGET/uploads/index.hml" ]
     echo "shared files already exist"
 else
     mkdir -p $TARGET/uploads
