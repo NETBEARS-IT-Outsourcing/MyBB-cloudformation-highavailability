@@ -2,6 +2,9 @@
 
 This is a **complete AWS CloudFormation template** for running the MyBB application on a scalable, highly-available and secure infrastructure.
 
+## Provider
+This tutorial has been provided by [NETBEARS](https://netbears.ro/).
+
 ### Running the stack
 
 To run this project in an AWS Account do the following:
