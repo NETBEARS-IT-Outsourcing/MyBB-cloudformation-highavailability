@@ -100,9 +100,6 @@ Parameters:
     Type: String
     Description: Optional - CIDR/IP range for EcsPort - defaults to 0.0.0.0/0
     Default: 0.0.0.0/0
-  EcsCluster:
-    Type: String
-    Description: ECS Cluster Name
   DBClass:
     Description: Database instance class
     Type: String
@@ -242,6 +239,10 @@ Conditions:
     - Condition: Is-EC2-VPC
 
 Resources:
+  EcsCluster:
+    Type: AWS::ECS::Cluster
+    Description: ECS Cluster Name
+    
   EcsSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
