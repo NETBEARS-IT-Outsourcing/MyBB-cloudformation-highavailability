@@ -3,7 +3,7 @@
 This is a **complete AWS CloudFormation template** for running the MyBB application on a scalable, highly-available and secure infrastructure.
 
 ## Provider
-This tutorial has been provided by [NETBEARS](https://netbears.ro/).
+The CloudFormation template and explanation is also posted on the [NETBEARS](https://netbears.com/blog/mybb-docker-ecs/) company blog. You might want to check the website out for more tutorials like this.
 
 ## Stack details
 
@@ -33,3 +33,8 @@ To run this project in an AWS Account do the following:
 - 1 Application Load Balancer
 - 1 MySQL RDS MultiAZ
 - 1 EFS file system
+
+## Final notes
+Need help implementing this?
+
+Feel free to contact us using [this form](https://netbears.com/#contact-form).
